@@ -69,6 +69,21 @@ Reference model의 neuron별 연산 구조를 5×5 systolic array 기반 연산 
 1. **AXI latency hiding**: AXI latency를 hiding해 simulation run time을 줄인다.
 2. **Unified Buffer**: `Input_Buffer`와 `Global_Buffer`를 `Unified_Buffer` 하나로 통합해 buffer area를 줄인다.
 
+### 결과
+
+AXI 입력 로딩(3,920 cycle/batch)을 연산과 겹쳐 전체 simulation time을 약 41% 줄였고, 정확도는 그대로 유지했다.
+
+| 항목 | `systolic_project` | `dnn_optimization_project` |
+|---|---|---|
+| Simulation time | 1,844,235 ns (184,424 cycle) | 1,087,155 ns (108,716 cycle) |
+| Accuracy | 99.0% (FAIL 1) | 99.0% (FAIL 1) |
+| AXI 입력 로딩 | 매 batch 연산 전에 직렬 수행 | 첫 batch 이후 연산과 중첩 |
+
+- 감소한 75,708 cycle은 20개 batch 중 19번의 AXI 로딩을 숨긴 이론값 3,920 × 19 = 74,480 cycle과 거의 일치한다.
+- Input Loader FSM을 DNN Scheduler에서 분리해, compute가 시작되면 Loader가 곧바로 반대쪽 영역으로 다음 batch를 받는다.
+- `Unified_Buffer`는 A/B 두 영역을 번갈아 쓰며, 각 영역은 입력 784 + 중간 결과 30 = 814 depth다.
+- `axi_lite_wrapper`의 `statReg[3:0]`로 Loader 상태를 testbench에 전달하고, `top_sim`은 결과를 기다리기 전에 다음 batch를 보낸다.
+
 `systolic_project` 대비 주요 변경 파일은 다음과 같다.
 
 | 구분 | 파일 |
